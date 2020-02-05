@@ -16,5 +16,7 @@ routes.use(jwtAuth);
 routes.put('/users', UserController.update);
 routes.get('/users', UserController.index);
 routes.get('/recipients', RecipientController.index);
+routes.post('/recipients', RecipientController.store);
+routes.post('/recipients/:id', RecipientController.update);
 
 export default routes;

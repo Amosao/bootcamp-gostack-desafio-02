@@ -61,7 +61,7 @@ class RecipientController {
         city,
         state,
         compliment,
-      } = recipient.update(req.body);
+      } = await recipient.update(req.body);
 
       return res.json({
         id,
