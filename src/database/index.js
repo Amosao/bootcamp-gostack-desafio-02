@@ -2,6 +2,7 @@ import Sequelize from 'sequelize';
 
 import dbConfig from '../config/database';
 
+// MODELS
 import User from '../app/models/User';
 import Recipient from '../app/models/Recipient';
 
