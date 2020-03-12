@@ -1,18 +1,77 @@
 import * as yup from 'yup';
 
 import User from '../models/User';
+import File from '../models/File';
+
+import UploadImage from '../utils/UploadImage';
+import DeleteImage from '../utils/DeleteImage';
 
 class UserController {
   // GET ALL USERS DATA
   async index(req, res) {
-    const users = await User.findAll();
+    const users = await User.findAll({
+      include: [{ model: File, as: 'avatar', attributes: ['path', 'url'] }],
+      attributes: {
+        exclude: ['password_hash', 'updatedAt'],
+      },
+    });
 
     return res.json(users);
   }
 
   // GET 1 USER DATA
   async show(req, res) {
-    return res.json();
+    if (req.params.id) {
+      const user = await User.findByPk(req.params.id, {
+        include: [
+          { model: File, as: 'avatar', attributes: ['name', 'path', 'url'] },
+        ],
+      });
+
+      if (!user) {
+        return res.status(401).json({ error: 'User does not exist.' });
+      }
+
+      const { name, email, provider, avatar, createdAt } = user;
+
+      return res.json({
+        name,
+        email,
+        provider,
+        avatar_url: avatar.url,
+        createdAt,
+      });
+    }
+
+    const user = await User.findByPk(req.userId, {
+      include: [
+        { model: File, as: 'avatar', attributes: ['name', 'path', 'url'] },
+      ],
+    });
+
+    if (!user) {
+      return res.status(401).json({ error: 'User does not exist.' });
+    }
+
+    const {
+      name,
+      email,
+      password_hash,
+      provider,
+      avatar,
+      createdAt,
+      updatedAt,
+    } = user;
+
+    return res.json({
+      name,
+      email,
+      password_hash,
+      provider,
+      avatar_url: avatar.url,
+      createdAt,
+      updatedAt,
+    });
   }
 
   // CREATE USER
@@ -29,13 +88,15 @@ class UserController {
         .min(6),
     });
 
-    if (!(await schema.isValid(req.body))) {
+    let body = JSON.parse(req.body.body);
+
+    if (!(await schema.isValid(body))) {
       return res.status(400).json({ error: 'Validation failed.' });
     }
 
     const userExists = await User.findOne({
       where: {
-        email: req.body.email,
+        email: body.email,
       },
     });
 
@@ -43,8 +104,29 @@ class UserController {
       return res.status(400).json({ error: 'User already exists.' });
     }
 
-    const { id, name, email, provider } = await User.create(req.body);
-    return res.json({ id, name, email, provider });
+    const transaction = await User.sequelize.transaction();
+
+    if (req.file) {
+      const file = await UploadImage(req.file);
+
+      if (file.error) {
+        return res.status(500).json(file);
+      }
+
+      body = { ...body, avatar_id: file.id };
+    }
+
+    try {
+      const { id, name, email, provider } = await User.create(body);
+      transaction.commit();
+
+      return res.json({ id, name, email, provider });
+    } catch (err) {
+      transaction.rollback();
+      await DeleteImage(body.avatar_id);
+
+      return res.status(500).json({ message: 'error', error: err });
+    }
   }
 
   // UPDATE USER DATA
@@ -90,14 +172,28 @@ class UserController {
       return res.status(401).json({ error: 'Password does not match.' });
     }
 
-    const { id, name, provider } = await user.update(req.body);
+    const transaction = await User.sequelize.transaction();
 
-    return res.json({ id, name, email, provider });
+    try {
+      const { id, name, provider } = await user.update(req.body);
+
+      transaction.commit();
+
+      return res.json({ id, name, email, provider });
+    } catch (err) {
+      transaction.rollback();
+
+      return res.status(500).json({ message: 'error', error: err });
+    }
   }
 
   // DEACTIVATE USER
   async delete(req, res) {
-    return res.json();
+    const deleteFile = await DeleteImage(
+      '55b724d7d2a30577db153e75fdb52eba.jpg'
+    );
+
+    return res.json(deleteFile);
   }
 }
 

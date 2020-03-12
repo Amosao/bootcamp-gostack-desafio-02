@@ -79,7 +79,14 @@ class RecipientController {
 
   // DEACTIVATE RECIPIENT
   async delete(req, res) {
-    return res.json();
+    const { id } = req.params;
+
+    try {
+      await Recipient.destroy({ where: { id } });
+      return res.json({ message: 'Recipient deleted.' });
+    } catch (err) {
+      return res.status(400).json({ error: 'Recipient could not be deleted.' });
+    }
   }
 }
 

@@ -12,6 +12,7 @@ module.exports = {
           provider: true,
           created_at: new Date(),
           updated_at: new Date(),
+          avatar_id: null,
         },
       ],
       {}
